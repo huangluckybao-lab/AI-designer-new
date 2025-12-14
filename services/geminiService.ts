@@ -1,18 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ClothingItem, ItemCategory, OutfitRequest, OutfitSuggestion } from "../types";
 
-// Helper to ensure we have the API Key selected for the paid models (Veo/Imagen/Pro Image)
-export const ensureApiKey = async (): Promise<void> => {
-  const win = window as any;
-  if (win.aistudio) {
-    const hasKey = await win.aistudio.hasSelectedApiKey();
-    if (!hasKey) {
-      await win.aistudio.openSelectKey();
-    }
+// ⚠️ 修复：辅助函数，统一获取 AI 客户端并验证 Key
+const getAIClient = () => {
+  // 这里必须用 import.meta.env.VITE_... 才能在 Cloudflare + Vite 环境下稳定读取
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("API Key 未配置，请检查 Cloudflare 环境变量 VITE_GEMINI_API_KEY");
   }
+  return new GoogleGenAI({ apiKey });
 };
 
-// Helper to safely parse JSON from AI response, handling markdown code blocks
+// Helper to safely parse JSON from AI response
 const safeJsonParse = (text: string) => {
   try {
     const cleanText = text.replace(/```json\s*|\s*```/g, "").trim();
@@ -24,18 +23,12 @@ const safeJsonParse = (text: string) => {
 };
 
 /**
- * 1. Analyze an uploaded image to categorize it and tag it.
- * Uses: gemini-2.5-flash
+ * 1. Analyze an uploaded image
+ * Uses: gemini-2.5-flash (保留原样)
  */
 export const analyzeClothingImage = async (base64Data: string): Promise<Partial<ClothingItem>> => {
-  await ensureApiKey(); // Ensure key is present to avoid auth hangs
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error("API Key missing");
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient(); // 使用修复后的客户端获取方式
   
-  // Note: base64Data coming from resizeImage utility might include the prefix "data:image/jpeg;base64,", 
-  // so we need to strip it if strictly required by SDK, but SDK often handles it or we pass raw bytes.
-  // The SDK 'inlineData' usually expects just the base64 string without the prefix.
   const cleanBase64 = base64Data.includes('base64,') ? base64Data.split('base64,')[1] : base64Data;
 
   const prompt = `
@@ -49,7 +42,7 @@ export const analyzeClothingImage = async (base64Data: string): Promise<Partial<
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.5-flash', // 遵从你的指示，保留此模型名
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
@@ -78,20 +71,15 @@ export const analyzeClothingImage = async (base64Data: string): Promise<Partial<
 };
 
 /**
- * 2. Suggest an outfit based on wardrobe and user request.
- * Uses: gemini-3-pro-preview (Best for reasoning)
+ * 2. Suggest an outfit
+ * Uses: gemini-3-pro-preview (保留原样)
  */
 export const suggestOutfit = async (
   wardrobe: ClothingItem[], 
   request: OutfitRequest
 ): Promise<OutfitSuggestion> => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error("API Key missing");
-  const ai = new GoogleGenAI({ apiKey });
-  await ensureApiKey(); 
+  const ai = getAIClient(); // 使用修复后的客户端获取方式
 
-
-  // Create a text representation of the wardrobe
   const wardrobeSummary = wardrobe.map(item => 
     `- ID: ${item.id}, 类型: ${item.category}, 颜色: ${item.color}, 描述: ${item.description}`
   ).join('\n');
@@ -118,7 +106,7 @@ export const suggestOutfit = async (
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-3-pro-preview', // 遵从你的指示，保留此模型名
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -142,22 +130,15 @@ export const suggestOutfit = async (
 
 /**
  * 3. Generate the visual OOTD image.
- * Uses: gemini-3-pro-image-preview (Nano Banana Pro)
- * Supports Virtual Try-On if userImageBase64 is provided.
+ * Uses: gemini-3-pro-image-preview (保留原样)
  */
 export const generateOOTDImage = async (visualPrompt: string, userImageBase64?: string): Promise<string> => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error("API Key missing");
-  const ai = new GoogleGenAI({ apiKey });
-  await ensureApiKey(); // MANDATORY for this model
-  
+  const ai = getAIClient(); // 使用修复后的客户端获取方式
 
   let contents: any;
 
   if (userImageBase64) {
-    // If user provided a photo, use it as context/input
     const cleanBase64 = userImageBase64.includes('base64,') ? userImageBase64.split('base64,')[1] : userImageBase64;
-    
     contents = {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
@@ -165,7 +146,6 @@ export const generateOOTDImage = async (visualPrompt: string, userImageBase64?: 
       ]
     };
   } else {
-    // Default AI Model generation
     const enhancedPrompt = `
       Fashion photography, full body shot. 
       A stylish model wearing the following outfit:
@@ -181,7 +161,7 @@ export const generateOOTDImage = async (visualPrompt: string, userImageBase64?: 
   }
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-image-preview',
+    model: 'gemini-3-pro-image-preview', // 遵从你的指示，保留此模型名
     contents: contents,
     config: {
       imageConfig: {
@@ -191,7 +171,6 @@ export const generateOOTDImage = async (visualPrompt: string, userImageBase64?: 
     }
   });
 
-  // Extract image
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if (part.inlineData) {
       return `data:image/png;base64,${part.inlineData.data}`;

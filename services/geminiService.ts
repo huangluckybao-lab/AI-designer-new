@@ -29,6 +29,8 @@ const safeJsonParse = (text: string) => {
  */
 export const analyzeClothingImage = async (base64Data: string): Promise<Partial<ClothingItem>> => {
   await ensureApiKey(); // Ensure key is present to avoid auth hangs
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) throw new Error("API Key missing");
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   // Note: base64Data coming from resizeImage utility might include the prefix "data:image/jpeg;base64,", 
@@ -83,8 +85,11 @@ export const suggestOutfit = async (
   wardrobe: ClothingItem[], 
   request: OutfitRequest
 ): Promise<OutfitSuggestion> => {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) throw new Error("API Key missing");
+  const ai = new GoogleGenAI({ apiKey });
   await ensureApiKey(); 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
 
   // Create a text representation of the wardrobe
   const wardrobeSummary = wardrobe.map(item => 
@@ -141,8 +146,11 @@ export const suggestOutfit = async (
  * Supports Virtual Try-On if userImageBase64 is provided.
  */
 export const generateOOTDImage = async (visualPrompt: string, userImageBase64?: string): Promise<string> => {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) throw new Error("API Key missing");
+  const ai = new GoogleGenAI({ apiKey });
   await ensureApiKey(); // MANDATORY for this model
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
 
   let contents: any;
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ClothingItem, OutfitRequest, OutfitSuggestion, SavedOutfit } from '../types';
-import { suggestOutfit, generateOOTDImage, ensureApiKey } from '../services/geminiService';
+// ⚠️ 修复：去掉了 ensureApiKey
+import { suggestOutfit, generateOOTDImage } from '../services/geminiService';
 import { resizeImage } from '../utils';
 import { WEATHER_OPTIONS, OCCASION_OPTIONS, MOOD_OPTIONS, STYLE_OPTIONS, IconSparkles, IconUser, IconCamera, IconRefresh, IconClose, IconHanger } from '../constants';
 
@@ -56,10 +57,10 @@ const StylistView: React.FC<StylistViewProps> = ({ wardrobe, onSaveOutfit }) => 
     }
 
     setStep('processing');
-    setProcessingStatus("AI 搭配师正在构思 (Gemini 3 Pro)...");
+    setProcessingStatus("AI 搭配师正在构思...");
 
     try {
-      await ensureApiKey();
+      // ⚠️ 修复：删除了 await ensureApiKey();
       
       // Step A: Reasoning
       const result = await suggestOutfit(wardrobe, request);
@@ -67,7 +68,7 @@ const StylistView: React.FC<StylistViewProps> = ({ wardrobe, onSaveOutfit }) => 
       setSelectedItemIds(result.selectedItemIds);
 
       // Step B: Visualization
-      setProcessingStatus(userPhoto ? "正在为您试穿 (Gemini Nano Banana Pro)..." : "正在生成效果图 (Gemini Nano Banana Pro)...");
+      setProcessingStatus(userPhoto ? "正在为您试穿..." : "正在生成效果图...");
       const image = await generateOOTDImage(result.generatedVisualPrompt, userPhoto || undefined);
       setGeneratedImage(image);
 
@@ -100,7 +101,7 @@ const StylistView: React.FC<StylistViewProps> = ({ wardrobe, onSaveOutfit }) => 
     // Don't change step, just show loading state in button or overlay
     
     try {
-      await ensureApiKey();
+      // ⚠️ 修复：删除了 await ensureApiKey();
 
       // Construct dynamic prompt based on current items
       const selectedItems = wardrobe.filter(item => selectedItemIds.includes(item.id));
